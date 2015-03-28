@@ -1,0 +1,48 @@
+#define I2C_ADDRESS 0x14
+#define GET_DATA 0x01
+#define SET_SIGNATURE 0x02
+#define SET_HEIGHT 0x04
+#define SET_CALIB_CONST 0x08
+
+byte NXT_vi_sy_port;
+
+void SetSensorNXTViSy(byte port)
+{
+    NXT_vi_sy_port = port;
+}
+bool GetData(int &distance, byte &action)
+{
+    byte received_bytes_count = 0x03;
+    byte inBuffer[] = { I2C_ADDRESS, GET_DATA };
+    byte outBuffer[];
+    
+    while (I2CCheckStatus(port) != NO_ERR)
+        ;
+    if (I2CBytes(port, inBuffer, received_bytes_count, outBuffer) != NO_ERR)
+        return false;
+    if (received_bytes_count != 0x03)
+        return false;
+
+    distance = outBuffer[0];
+    distance |= outBuffer[1] << 8;
+    action = outBuffer[2];
+    
+    return true;
+}
+bool NXTViSyInit(byte sig, byte height, unsigned int calib_dis_pix)
+{
+    byte inBuffer[6];
+    
+    inBuffer[0] = I2C_ADDRESS;
+    inBuffer[1] = SET_SIGNATURE | SET_HEIGHT | SET_CALIB_CONST;
+    inBuffer[2] = sig;
+    inBuffer[3] = height;
+    inBuffer[4] = calib_dis_pix & 0xFF; // low bits
+    inBuffer[5] = calib_dis_pix >> 8; // high bits
+    
+    while (I2CCheckStatus(port) != NO_ERR)
+        ;
+    if (I2CWrite(port, 0x00, inBuffer) != NO_ERR)
+        return false;
+    return true;
+}
