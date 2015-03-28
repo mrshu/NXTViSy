@@ -4,6 +4,12 @@
 #include <Wire.h>
 #include <stdint.h>
 
+
+//Uncomment line below for some debug information on Serial Monitor
+//  "OK" means that some configures were set to pixy_vi_sy
+//  "value1 value2" means I2C master wants read data
+//    value1 = distance from pixy_vi_sy
+//    value2 = action = pixy_vi_sy
 //#define DBG
 #define I2C_ADDRESS 0x0A
 #define GET_DATA 0x01
