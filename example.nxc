@@ -1,0 +1,23 @@
+#include "NXTViSy.nxc"
+
+#define PORT IN_1
+#define SIGNATURE 1
+
+task main()
+{
+    SetSensorNXTViSy(PORT);
+    NXTViSyInit(SIGNATURE, 10, 24 * 100);
+
+    int distance;
+    byte action;
+    string writable_action = "x";
+
+    while (true) {
+        NXTViSyGetData(distance, action);
+        writable_action[0] = action;
+        TextOut(0, LCD_LINE1, "Distance: ");
+        NumOut(60, LCD_LINE1, distance);
+        TextOut(0, LCD_LINE2, "Action: ");
+        TextOut(48, LCD_LINE2, writable_action);
+    }
+}
