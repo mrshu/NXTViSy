@@ -9,8 +9,9 @@ byte NXT_vi_sy_port;
 void SetSensorNXTViSy(byte port)
 {
     NXT_vi_sy_port = port;
+    SetSensorLowspeed(port);
 }
-bool GetData(int &distance, byte &action)
+bool NXTViSyGetData(int &distance, byte &action)
 {
     byte received_bytes_count = 0x03;
     byte inBuffer[] = { I2C_ADDRESS, GET_DATA };
