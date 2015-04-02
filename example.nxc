@@ -6,7 +6,11 @@
 task main()
 {
     SetSensorNXTViSy(PORT);
-    NXTViSyInit(SIGNATURE, 10, 24 * 100);
+    long err = NXTViSyInit(SIGNATURE, 10, 24 * 100);
+    if (err != NO_ERR) {
+        NumOut(0, LCD_LINE4, err);
+        while(1);
+    }
 
     int distance;
     byte action;
@@ -14,7 +18,11 @@ task main()
 
     while (true) {
         ClearScreen();
-        NXTViSyGetData(distance, action);
+        err = NXTViSyGetData(distance, action);
+        if (err != NO_ERR) {
+            NumOut(0, LCD_LINE5, err);
+            while(1);
+        }
         writable_action[0] = action;
         TextOut(0, LCD_LINE1, "Distance: ");
         NumOut(60, LCD_LINE1, distance);
