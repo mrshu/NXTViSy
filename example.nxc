@@ -13,11 +13,13 @@ task main()
     string writable_action = "x";
 
     while (true) {
+        ClearScreen();
         NXTViSyGetData(distance, action);
         writable_action[0] = action;
         TextOut(0, LCD_LINE1, "Distance: ");
         NumOut(60, LCD_LINE1, distance);
         TextOut(0, LCD_LINE2, "Action: ");
         TextOut(48, LCD_LINE2, writable_action);
+        Wait(100);
     }
 }
