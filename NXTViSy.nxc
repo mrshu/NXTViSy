@@ -3,6 +3,8 @@
 #define SET_SIGNATURE 0x02
 #define SET_HEIGHT 0x04
 #define SET_CALIB_CONST 0x08
+#define GET_DATA_I2C_BYTES_ERR 0x01
+#define GET_DATA_RECEIVED_BYTES_ERR 0x02
 
 byte NXTViSy_port;
 
@@ -21,15 +23,15 @@ byte NXTViSyGetData(int &distance, byte &action)
     while (I2CCheckStatus(NXTViSy_port) != NO_ERR)
         ;
     if (I2CBytes(NXTViSy_port, inBuffer, received_bytes_count, outBuffer) == false)
-        return 0x01;
+        return GET_DATA_I2C_BYTES_ERR;
     if (received_bytes_count != 0x03)
-        return 0x02;
+        return GET_DATA_RECEIVED_BYTES_ERR;
 
     distance = outBuffer[0];
     distance |= outBuffer[1] << 8;
     action = outBuffer[2];
     
-    return 0x00;
+    return NO_ERR;
 }
 long NXTViSyInit(byte sig, byte height, unsigned int calib_dis_pix)
 {
