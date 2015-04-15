@@ -23,7 +23,7 @@ task main()
         ClearScreen();
         err = NXTViSyGetData(distance, action);
         if (err == GET_DATA_I2C_BYTES_ERR) {
-            TextOut(0, LCD_LINE5, "I2CBytes error in function);
+            TextOut(0, LCD_LINE5, "I2CBytes error in function");
             TextOut(0, LCD_LINE6, "GetData()");
             while (true) {
                 ;
