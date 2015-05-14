@@ -3,16 +3,39 @@
 #define PORT IN_1
 #define SIGNATURE 1
 
+void PrintInitError(long error_code)
+{
+    TextOut(0, LCD_LINE4, "NXTViSyInit error: ");
+    NumOut(90, LCD_LINE4, error_code);
+    while(1) {
+        ;
+    }
+}
+
+void PrintGetDataError(byte error_code)
+{
+    if (error_code == GET_DATA_I2C_BYTES_ERR) {
+        TextOut(0, LCD_LINE5, "I2CBytes error in function");
+        TextOut(0, LCD_LINE6, "GetData()");
+        while (true) {
+            ;
+        }
+    }
+    if (error_code == GET_DATA_RECEIVED_BYTES_ERR) {
+        TextOut(0, LCD_LINE5, "Unexpected count of bytes");
+        TextOut(0, LCD_LINE6, "received in function GetData()");
+        while (true) {
+            ;
+        }
+    }
+}
+
 task main()
 {
     SetSensorNXTViSy(PORT);
     long err = NXTViSyInit(SIGNATURE, 10, 24 * 100);
     if (err != NO_ERR) {
-        TextOut(0, LCD_LINE4, "NXTViSyInit error: ");
-        NumOut(90, LCD_LINE4, err);
-        while(1) {
-            ;
-        }
+        PrintInitError(err);
     }
 
     int distance;
@@ -21,21 +44,12 @@ task main()
 
     while (true) {
         ClearScreen();
-        err = NXTViSyGetData(distance, action);
-        if (err == GET_DATA_I2C_BYTES_ERR) {
-            TextOut(0, LCD_LINE5, "I2CBytes error in function");
-            TextOut(0, LCD_LINE6, "GetData()");
-            while (true) {
-                ;
-            }
+
+        err = NXTViSyGetData(distance, action); // byte vyriable would by enough, but long can be used
+        if (err != NO_ERR) {
+            PrintGetDataError(err);
         }
-        if (err == GET_DATA_RECEIVED_BYTES_ERR) {
-            TextOut(0, LCD_LINE5, "Unexpected count of bytes");
-            TextOut(0, LCD_LINE6, "received in function GetData()");
-            while (true) {
-                ;
-            }
-        }
+
         writable_action[0] = action;
         TextOut(0, LCD_LINE4, "Distance: ");
         NumOut(60, LCD_LINE4, distance);
