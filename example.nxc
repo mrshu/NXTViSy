@@ -1,7 +1,18 @@
 #include "NXTViSy.nxc"
 
 #define PORT IN_1
-#define SIGNATURE 1
+
+#define FOC_LEN_X 266
+#define FOC_LEN_Y 237
+
+#define GOAL_SIG 1
+#define BALL_SIG 2
+
+#define GOAL_HEIGHT 10
+#define BALL_DIAMETER 7
+
+#define MIN_GOAL_SIZE 100
+#define MIN_BALL_SIZE 0
 
 void PrintInitError(long error_code)
 {
@@ -33,26 +44,30 @@ void PrintGetDataError(byte error_code)
 task main()
 {
     SetSensorNXTViSy(PORT);
-    long err = NXTViSyInit(SIGNATURE, 10, 24 * 100);
+    long err = NXTViSySetParams(FOC_LEN_X, FOC_LEN_Y,
+          GOAL_SIG, GOAL_HEIGHT, MIN_GOAL_SIZE,
+          BALL_DIAMETER, BALL_SIG, MIN_BALL_SIZE,
+          NXTVISY_GOAL | NXTVISY_BALL);
+
     if (err != NO_ERR) {
         PrintInitError(err);
     }
 
-    int distance;
+    int goal_distance;
     byte action;
     string writable_action = "x";
 
     while (true) {
         ClearScreen();
-
-        err = NXTViSyGetData(distance, action); // byte vyriable would by enough, but long can be used
+        // byte variable would by enough, but long can be used
+        err = NXTViSyGetData(goal_distance, action);
         if (err != NO_ERR) {
             PrintGetDataError(err);
         }
 
         writable_action[0] = action;
         TextOut(0, LCD_LINE4, "Distance: ");
-        NumOut(60, LCD_LINE4, distance);
+        NumOut(60, LCD_LINE4, goal_distance);
         TextOut(0, LCD_LINE5, "Action: ");
         TextOut(48, LCD_LINE5, writable_action);
         Wait(100);

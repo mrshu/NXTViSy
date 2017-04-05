@@ -1,8 +1,20 @@
 #define I2C_ADDRESS 0x14
-#define GET_DATA 0x01
-#define SET_SIGNATURE 0x02
-#define SET_HEIGHT 0x04
-#define SET_CALIB_CONST 0x08
+
+#define GET_DATA            0x0001
+#define SET_PIXEL_FX        0x0002   // 2-byte
+#define SET_PIXEL_FY        0x0004   // 2-byte
+#define SET_GOAL_SIG        0x0008   // 1-byte
+#define SET_GOAL_HEIGHT     0x0010   // 1-byte
+#define SET_MIN_GOAL_SIZE   0x0020   // 2-byte
+#define SET_BALL_SIZE       0x0040   // 1-byte
+#define SET_BALL_SIG        0x0080   // 1-byte
+#define SET_MIN_BALL_SIZE   0x0100   // 2-byte
+#define SET_FLAG            0x0200   // 1-byte
+#define SETTINGS_COUNT 9
+
+#define NXTVISY_GOAL 0x01
+#define NXTVISY_BALL 0x02
+
 #define GET_DATA_I2C_BYTES_ERR 0x01
 #define GET_DATA_RECEIVED_BYTES_ERR 0x02
 
@@ -13,18 +25,20 @@ void SetSensorNXTViSy(byte port)
     NXTViSy_port = port;
     SetSensorLowspeed(port);
 }
+
 byte NXTViSyGetData(int &distance, byte &action)
 {
-    byte received_bytes_count = 0x03;
-    byte inBuffer[2] = { I2C_ADDRESS, GET_DATA };
+    byte received_count = 0x03;
+    byte inBuffer[3] = { I2C_ADDRESS, GET_DATA & 0x00FF, GET_DATA >> 8 };
     byte outBuffer[];
     long error;
     
     while (I2CCheckStatus(NXTViSy_port) != NO_ERR)
         ;
-    if (I2CBytes(NXTViSy_port, inBuffer, received_bytes_count, outBuffer) == false)
+
+    if (I2CBytes(NXTViSy_port, inBuffer, received_count, outBuffer) == false)
         return GET_DATA_I2C_BYTES_ERR;
-    if (received_bytes_count != 0x03)
+    if (received_count != 0x03)
         return GET_DATA_RECEIVED_BYTES_ERR;
 
     distance = outBuffer[0];
@@ -33,18 +47,102 @@ byte NXTViSyGetData(int &distance, byte &action)
     
     return NO_ERR;
 }
-long NXTViSyInit(byte sig, byte height, unsigned int calib_dis_pix)
+
+// use 0xFFFF and 0xFF if you don't want to set it
+long NXTViSySetParams(unsigned int pixel_Fx, unsigned int pixel_Fy,
+    byte goal_sig, byte goal_height, unsigned int min_goal_size,
+    byte ball_size, byte ball_sig, unsigned int min_ball_size, byte flag)
 {
-    byte inBuffer[6];
-    
-    inBuffer[0] = I2C_ADDRESS;
-    inBuffer[1] = SET_SIGNATURE | SET_HEIGHT | SET_CALIB_CONST;
-    inBuffer[2] = sig;
-    inBuffer[3] = height;
-    inBuffer[4] = calib_dis_pix & 0xFF; // low bits
-    inBuffer[5] = calib_dis_pix >> 8; // high bits
-    
+    byte setsBuffer[3 + SETTINGS_COUNT*2];
+    byte inBuffer[];
+    int count_to_set = 0;
+    int inBuffer_length;
+
+    unsigned int to_set =
+        ((pixel_Fx      != 0xFFFF) ? SET_PIXEL_FX      : 0) |
+        ((pixel_Fy      != 0xFFFF) ? SET_PIXEL_FY      : 0) |
+        ((goal_sig      != 0xFF) ? SET_GOAL_SIG      : 0) |
+        ((goal_height   != 0xFF) ? SET_GOAL_HEIGHT   : 0);
+
+    setsBuffer[0] = I2C_ADDRESS;
+    setsBuffer[1] = to_set & 0x00FF; // low bits
+    setsBuffer[2] = to_set >> 8; // high bits
+
+    if (pixel_Fx      != 0xFFFF) {
+        setsBuffer[3 + count_to_set] = pixel_Fx & 0x00FF;
+        setsBuffer[3 + count_to_set + 1] = pixel_Fx >> 8;
+        count_to_set += 2;
+    }
+    if (pixel_Fy      != 0xFFFF) {
+        setsBuffer[3 + count_to_set] = pixel_Fy & 0x00FF;
+        setsBuffer[3 + count_to_set + 1] = pixel_Fy >> 8;
+        count_to_set += 2;
+    }
+    if (goal_sig      != 0xFF) {
+        setsBuffer[3 + count_to_set] = goal_sig;
+        count_to_set += 1;
+    }
+    if (goal_height   != 0xFF) {
+        setsBuffer[3 + count_to_set] = goal_height;
+        count_to_set += 1;
+    }
+
+    inBuffer_length = 3 + count_to_set;
+    ArrayInit(inBuffer, 0, inBuffer_length);
+    ArraySubset(inBuffer, setsBuffer, 0, inBuffer_length);
+
     while (I2CCheckStatus(NXTViSy_port) != NO_ERR)
         ;
-    return I2CWrite(NXTViSy_port, 0, inBuffer);
+
+    long err = I2CWrite(NXTViSy_port, 0, inBuffer);
+    if (err != NO_ERR) {
+        return err;
+    }
+
+    // next part
+
+    count_to_set = 0;
+    to_set =
+        ((min_goal_size != 0xFFFF) ? SET_MIN_GOAL_SIZE : 0) |
+        ((ball_size     != 0xFF) ? SET_BALL_SIZE     : 0) |
+        ((ball_sig      != 0xFF) ? SET_BALL_SIG      : 0) |
+        ((min_ball_size != 0xFFFF) ? SET_MIN_BALL_SIZE : 0) |
+        ((flag          != 0xFF) ? SET_FLAG          : 0);
+
+    setsBuffer[0] = I2C_ADDRESS;
+    setsBuffer[1] = to_set & 0x00FF; // low bits
+    setsBuffer[2] = to_set >> 8; // high bits
+
+    if (min_goal_size != 0xFFFF) {
+        setsBuffer[3 + count_to_set] = min_goal_size & 0x00FF;
+        setsBuffer[3 + count_to_set + 1] = min_goal_size >> 8;
+        count_to_set += 2;
+    }
+    if (ball_size     != 0xFF) {
+        setsBuffer[3 + count_to_set] = ball_size;
+        count_to_set += 1;
+    }
+    if (ball_sig      != 0xFF) {
+        setsBuffer[3 + count_to_set] = ball_sig;
+        count_to_set += 1;
+    }
+    if (min_ball_size != 0xFFFF) {
+        setsBuffer[3 + count_to_set] = min_ball_size & 0x00FF;
+        setsBuffer[3 + count_to_set + 1] = min_ball_size >> 8;
+        count_to_set += 2;
+    }
+    if (flag          != 0xFF) {
+        setsBuffer[3 + count_to_set] = flag;
+        count_to_set += 1;
+    }
+
+    inBuffer_length = 3 + count_to_set;
+    ArrayInit(inBuffer, 0, inBuffer_length);
+    ArraySubset(inBuffer, setsBuffer, 0, inBuffer_length);
+
+    while (I2CCheckStatus(NXTViSy_port) != NO_ERR)
+        ;
+
+    err = I2CWrite(NXTViSy_port, 0, inBuffer);
+    return err;
 }
