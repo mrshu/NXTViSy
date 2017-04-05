@@ -53,23 +53,30 @@ task main()
         PrintInitError(err);
     }
 
-    int goal_distance;
-    byte action;
+    int goal_dist, ball_dist;
+    byte goal_action;
+    char ball_angle;
     string writable_action = "x";
 
     while (true) {
         ClearScreen();
         // byte variable would by enough, but long can be used
-        err = NXTViSyGetData(goal_distance, action);
+        err = NXTViSyGetAllData(goal_dist, goal_action, ball_dist, ball_angle);
+        //err = NXTViSyGetGoalData(goal_dist, goal_action);
+        //err = NXTViSyGetBallData(ball_dist, ball_angle);
         if (err != NO_ERR) {
             PrintGetDataError(err);
         }
 
-        writable_action[0] = action;
-        TextOut(0, LCD_LINE4, "Distance: ");
-        NumOut(60, LCD_LINE4, goal_distance);
+        writable_action[0] = goal_action;
+        TextOut(0, LCD_LINE4, "Goal dist: ");
+        NumOut(66, LCD_LINE4, goal_dist);
         TextOut(0, LCD_LINE5, "Action: ");
         TextOut(48, LCD_LINE5, writable_action);
+        TextOut(0, LCD_LINE6, "Ball dist: ");
+        NumOut(66, LCD_LINE6, ball_dist);
+        TextOut(0, LCD_LINE7, "Ball angle: ");
+        NumOut(72, LCD_LINE7, ball_angle);
         Wait(100);
     }
 }

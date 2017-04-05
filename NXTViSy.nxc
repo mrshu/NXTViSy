@@ -1,6 +1,8 @@
 #define I2C_ADDRESS 0x14
 
 #define GET_DATA            0x0001
+#define GET_DATA_GOAL       0x0002
+#define GET_DATA_BALL       0x0004
 #define SET_PIXEL_FX        0x0002   // 2-byte
 #define SET_PIXEL_FY        0x0004   // 2-byte
 #define SET_GOAL_SIG        0x0008   // 1-byte
@@ -26,10 +28,44 @@ void SetSensorNXTViSy(byte port)
     SetSensorLowspeed(port);
 }
 
-byte NXTViSyGetData(int &distance, byte &action)
+byte NXTViSyGetAllData(int &goal_distance, byte &goal_action,
+    int &ball_distance, char &ball_angle)
+{
+    byte received_count = 0x06;
+    unsigned int get_flag = GET_DATA | GET_DATA_GOAL | GET_DATA_BALL;
+    byte inBuffer[3];
+    inBuffer[0] = I2C_ADDRESS;
+    inBuffer[1] = get_flag & 0x00FF;
+    inBuffer[2] = get_flag >> 8;
+    byte outBuffer[];
+    long error;
+    
+    while (I2CCheckStatus(NXTViSy_port) != NO_ERR)
+        ;
+
+    if (I2CBytes(NXTViSy_port, inBuffer, received_count, outBuffer) == false)
+        return GET_DATA_I2C_BYTES_ERR;
+    if (received_count != 0x06)
+        return GET_DATA_RECEIVED_BYTES_ERR;
+
+    goal_distance = outBuffer[0];
+    goal_distance |= outBuffer[1] << 8;
+    goal_action = outBuffer[2];
+    ball_distance = outBuffer[3];
+    ball_distance |= outBuffer[4] << 8;
+    ball_angle = outBuffer[5];
+    
+    return NO_ERR;
+}
+
+byte NXTViSyGetGoalData(int &distance, byte &action)
 {
     byte received_count = 0x03;
-    byte inBuffer[3] = { I2C_ADDRESS, GET_DATA & 0x00FF, GET_DATA >> 8 };
+    unsigned int get_flag = GET_DATA | GET_DATA_GOAL;
+    byte inBuffer[3];
+    inBuffer[0] = I2C_ADDRESS;
+    inBuffer[1] = get_flag & 0x00FF;
+    inBuffer[2] = get_flag >> 8;
     byte outBuffer[];
     long error;
     
@@ -44,6 +80,32 @@ byte NXTViSyGetData(int &distance, byte &action)
     distance = outBuffer[0];
     distance |= outBuffer[1] << 8;
     action = outBuffer[2];
+    
+    return NO_ERR;
+}
+
+byte NXTViSyGetBallData(int &distance, char &angle)
+{
+    byte received_count = 0x03;
+    unsigned int get_flag = GET_DATA | GET_DATA_BALL;
+    byte inBuffer[3];
+    inBuffer[0] = I2C_ADDRESS;
+    inBuffer[1] = get_flag & 0x00FF;
+    inBuffer[2] = get_flag >> 8;
+    byte outBuffer[];
+    long error;
+    
+    while (I2CCheckStatus(NXTViSy_port) != NO_ERR)
+        ;
+
+    if (I2CBytes(NXTViSy_port, inBuffer, received_count, outBuffer) == false)
+        return GET_DATA_I2C_BYTES_ERR;
+    if (received_count != 0x03)
+        return GET_DATA_RECEIVED_BYTES_ERR;
+
+    distance = outBuffer[0];
+    distance |= outBuffer[1] << 8;
+    angle = outBuffer[2];
     
     return NO_ERR;
 }
@@ -100,6 +162,7 @@ long NXTViSySetParams(unsigned int pixel_Fx, unsigned int pixel_Fy,
     }
 
     // next part
+    Wait(500);
 
     count_to_set = 0;
     to_set =
@@ -144,5 +207,6 @@ long NXTViSySetParams(unsigned int pixel_Fx, unsigned int pixel_Fy,
         ;
 
     err = I2CWrite(NXTViSy_port, 0, inBuffer);
+    Wait(500);
     return err;
 }

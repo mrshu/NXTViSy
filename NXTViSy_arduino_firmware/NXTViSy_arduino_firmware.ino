@@ -7,14 +7,13 @@
 
 
 //Uncomment line below for some debug information on Serial Monitor
-//WARNING: (slow) serial printing has problems with I2C
-//  "SET" means that some configures were set to pixy_vi_sy
-//  "value1 value2" means I2C master wants read data
-//    value1 = distance from pixy_vi_sy
-//    value2 = action = pixy_vi_sy
+//WARNING: (slow) serial printing has problems with I2C (because it's called
+//from and ISR
 //#define DBG
 #define I2C_ADDRESS 0x0A
 #define GET_DATA            0x0001
+#define GET_DATA_GOAL       0x0002
+#define GET_DATA_BALL       0x0004
 #define SET_PIXEL_FX        0x0002   // 2-byte
 #define SET_PIXEL_FY        0x0004   // 2-byte
 #define SET_GOAL_SIG        0x0008   // 1-byte
@@ -26,19 +25,7 @@
 #define SET_FLAG            0x0200   // 1-byte
 #define SETTINGS_COUNT 9
 
-#define FOC_LEN_X 1
-#define FOC_LEN_Y 1
-#define GOAL_SIG 1
-#define BALL_SIG 1
-#define GOAL_HEIGHT 1
-#define BALL_DIAMETER 1
-#define MIN_GOAL_SIZE 1
-#define MIN_BALL_SIZE 1
-
-PixyViSy pixy_vi_sy(FOC_LEN_X, FOC_LEN_Y,
-               GOAL_SIG, GOAL_HEIGHT, MIN_GOAL_SIZE,
-               BALL_DIAMETER, BALL_SIG, MIN_BALL_SIZE,
-               PIXYVISY_GOAL);
+PixyViSy pixy_vi_sy(1, 1, 1, 1, 1, 1, 1, 1, 1);
 
 typedef void (PixyViSy::*PixyViSy_set_func_1_t)(uint8_t);
 typedef void (PixyViSy::*PixyViSy_set_func_2_t)(uint16_t);
@@ -53,8 +40,10 @@ uint16_t settings_bytes[SETTINGS_COUNT] = { 2, 2, 1, 1, 2, 1, 1, 2, 1 };
 PixyViSy_set_func_t settings[SETTINGS_COUNT] = { NULL };
 
 uint16_t data;
-uint16_t last_distance = 0x00;
-uint8_t last_action = 0x00;
+uint16_t goal_dist = 0;
+uint8_t goal_action = 0;
+uint16_t ball_dist = 0;
+int8_t ball_angle = 0;
 
 void setup()
 {
@@ -81,8 +70,10 @@ void setup()
 void loop()
 {
     pixy_vi_sy.update();
-    last_distance = pixy_vi_sy.getGoalDist();
-    last_action = pixy_vi_sy.getGoalAction();
+    goal_dist = pixy_vi_sy.getGoalDist();
+    goal_action = pixy_vi_sy.getGoalAction();
+    ball_dist = pixy_vi_sy.getBallDist();
+    ball_angle = pixy_vi_sy.getBallAngle();
     delay(25); // without delay it doesnt work
 }
 
@@ -93,7 +84,7 @@ void receiveI2C(int bytesIn)
     #endif
     if (Wire.available() < 2) {
         #ifdef DBG
-        Serial.println("Error: Not enough bytes sent for setting");
+        Serial.println("Error: Few bytes");
         #endif
         return;
     }
@@ -120,8 +111,8 @@ void receiveI2C(int bytesIn)
             continue;
         }
         #ifdef DBG
-        Serial.print("SET DATA: setting ");
-        Serial.println(i);
+        //Serial.print("SET DATA: setting ");
+        //Serial.println(i);
         #endif
         if (Wire.available() < settings_bytes[i]) {
             #ifdef DBG
@@ -150,7 +141,7 @@ void receiveI2C(int bytesIn)
         }
     }
     #ifdef DBG
-    pixy_vi_sy.printParams();
+    //pixy_vi_sy.printParams();
     Serial.print("Wire.available = ");
     Serial.println(Wire.available());
     #endif
@@ -159,17 +150,58 @@ void receiveI2C(int bytesIn)
 void requestI2C()
 {
     if (data & GET_DATA) { // get data
-        byte low_bits = last_distance & 0xFF;
-        byte high_bits = last_distance >> 8;
-        byte array[] = { low_bits, high_bits, last_action };
+        if ((data & GET_DATA_GOAL) && (data & GET_DATA_BALL)) {
+            byte goal_low_bits = goal_dist & 0xFF;
+            byte goal_high_bits = goal_dist >> 8;
+            byte ball_low_bits = ball_dist & 0xFF;
+            byte ball_high_bits = ball_dist >> 8;
+            byte array[] = { goal_low_bits, goal_high_bits, goal_action,
+                ball_low_bits, ball_high_bits, (byte)ball_angle };
 
-        Wire.write(array, 3);
+            Wire.write(array, 6);
 
-        #ifdef DBG
-        Serial.print(last_distance);
-        Serial.print(' ');
-        Serial.println(last_action);
-        #endif
+            #ifdef DBG
+            Serial.print(array[0]);
+            Serial.print(' ');
+            Serial.print(array[1]);
+            Serial.print(' ');
+            Serial.print(array[2]);
+            Serial.print(' ');
+            Serial.print(array[3]);
+            Serial.print(' ');
+            Serial.print(array[4]);
+            Serial.print(' ');
+            Serial.println(array[5]);
+            #endif
+        } else if (data & GET_DATA_GOAL) {
+            byte low_bits = goal_dist & 0xFF;
+            byte high_bits = goal_dist >> 8;
+            byte array[] = { low_bits, high_bits, goal_action };
+
+            Wire.write(array, 3);
+
+            #ifdef DBG
+            Serial.print(array[0]);
+            Serial.print(' ');
+            Serial.print(array[1]);
+            Serial.print(' ');
+            Serial.println(array[2]);
+            #endif
+        } else if (data & GET_DATA_BALL) {
+            byte low_bits = ball_dist & 0xFF;
+            byte high_bits = ball_dist >> 8;
+            byte array[] = { low_bits, high_bits, (byte)ball_angle };
+
+            Wire.write(array, 3);
+
+            #ifdef DBG
+            Serial.print(array[0]);
+            Serial.print(' ');
+            Serial.print(array[1]);
+            Serial.print(' ');
+            Serial.println(array[2]);
+            #endif
+        }
     }
 }
 
